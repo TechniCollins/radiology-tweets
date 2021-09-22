@@ -1,5 +1,6 @@
 import os
 import requests
+import time
 
 import json
 
@@ -11,7 +12,7 @@ bearer_token = os.environ.get('BEARER_TOKEN')
 
 # The tweet attributes to be returned by the API
 tweet_fields = [
-    'id', 'text', 'created_at', 'public_metrics',
+    'id', 'text', 'created_at', 'public_metrics', 'lang',
     'referenced_tweets', 'entities', 'geo', 'attachments'
 ]
 
@@ -24,6 +25,11 @@ media_fields = [
 expansions = [
     'author_id',
     'attachments.media_keys'
+]
+
+user_fields = [
+    'name', 'username', 'public_metrics',
+    'description'
 ]
 
 
@@ -103,11 +109,27 @@ def organizeMedia(media_objects):
     return media_dict
 
 
+def organizeAuthors(author_objects):
+    author_dict = {}
+
+    if author_objects:
+        for author in author_objects:
+            author_dict[author.get("id")] = {
+                "username": author.get("username"),
+                "url": f"https://twitter.com/{author.get('username')}",
+                "bio": author.get("description"),
+                "name": author.get("name"),
+                "metrics": author.get("public_metrics")
+            }
+
+    return author_dict
+
+
 def processTweets(tweets_object, tweets_file):
     try:
         # load tweets file
         try:
-            tweets_json = json.load(open(tweets_file, 'r'))
+            tweets_json = json.load(open(tweets_file, 'r', encoding='UTF8'))
             # Note: This will become too expensive when tweets are too many
         except Exception as e:
             # initialize to an empty dictionary on error
@@ -115,6 +137,7 @@ def processTweets(tweets_object, tweets_file):
 
         tweets = tweets_object.get("data")
         media_objects = organizeMedia(tweets_object.get("includes", {}).get("media"))
+        author_objects = organizeAuthors(tweets_object.get("includes", {}).get("users"))
 
         for tweet in tweets:
             # Primary tweet attributes
@@ -122,15 +145,20 @@ def processTweets(tweets_object, tweets_file):
             text = tweet.get("text")
             date = str(tweet.get("created_at"))
 
-            author = tweet.get("author_id")
+            author = author_objects.get(tweet.get("author_id"))
 
             # tweet metrics
             metrics = tweet.get("public_metrics")
 
             # Check for replies
-            replies = getReplies(tweet_id, author)
+            if int(metrics.get("reply_count")) > 0:
+                replies = getReplies(tweet_id, author)
+            else:
+                replies = []
 
             entities = tweet.get("entities")
+
+            language = tweet.get("lang")
 
             hashtags_list = entities.get("hashtags", [])
             hashtags = [f'#{h.get("tag")}' for h in hashtags_list]
@@ -147,6 +175,7 @@ def processTweets(tweets_object, tweets_file):
             # Turn tweet objects to json
             tweets_json[tweet_id] = {
                 "text": text,"url": url, "date": date,
+                "language": language,
                 "author":author,
                 "metrics": metrics,
                 "replies": replies,
@@ -155,8 +184,8 @@ def processTweets(tweets_object, tweets_file):
                 "media": media
             }
             
-        with open(tweets_file, "w") as f:
-            f.write(json.dumps(tweets_json, indent=4))
+        with open(tweets_file, "w", encoding='UTF8') as f:
+            f.write(json.dumps(tweets_json, indent=4, ensure_ascii=False))
 
         return 1  # Just return something to differentiate success and failure
 
@@ -167,7 +196,9 @@ def processTweets(tweets_object, tweets_file):
             return None
 
 
-def getTweets(query):
+# next_token_after_limit param only applies when
+# trying to recover from rate limit reached error
+def getTweets(query, next_token_after_limit=None):
     # This will help us paginate
     has_next_page = True
 
@@ -180,23 +211,43 @@ def getTweets(query):
         "expansions": ",".join(expansions),
         "max_results": 100,
         "media.fields": ",".join(media_fields),
-        "tweet.fields": ",".join(tweet_fields)
+        "tweet.fields": ",".join(tweet_fields),
+        "user.fields": ",".join(user_fields)
     }
 
+    # if we're recovering from a rate limit error
+    if next_token_after_limit:
+        payload['next_token'] = next_token
+
     while has_next_page:
-        tweets_object = requests.get(
+        response = requests.get(
             "https://api.twitter.com/2/tweets/search/recent",
             params=payload,
             headers=headers
-        ).json()
+        )
 
-        processTweets(tweets_object, 'tweets.json')
-        next_token = tweets_object.get("meta").get("next_token")
-
-        if next_token:
-            payload["next_token"] = next_token
+        if int(response.status_code) == 429:            
+            # if we have reached the rate limit,
+            # sleep for a minute then call function again
+            # indicating where to start
+            print("Rate limit reached. Sleeping")
+            time.sleep(60)
+            print("Proceeding...")
+            getTweets(query, next_token)
         else:
-            has_next_page = False
+            tweets_object = response.json()
+
+            processTweets(tweets_object, 'tweets.json')
+
+            # Assumption is we won't reach rate limit on the first
+            # attempt, so next_token will be defined by the time
+            # we need it.
+            next_token = tweets_object.get("meta").get("next_token")
+
+            if next_token:
+                payload["next_token"] = next_token
+            else:
+                has_next_page = False
 
 
 def getHashtags():
@@ -214,6 +265,6 @@ if __name__ == '__main__':
     if query_length > 512:
         print("There are too many hashtags.")
     else:
-        print(f"Querying Twitter... ")
+        print(f"Querying Twitter, Please Wait...")
         getTweets(query)
         print("\nDONE")

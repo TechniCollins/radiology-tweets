@@ -1,5 +1,6 @@
 import os
 import requests
+import time
 
 import csv
 
@@ -11,7 +12,7 @@ bearer_token = os.environ.get('BEARER_TOKEN')
 
 # The tweet attributes to be returned by the API
 tweet_fields = [
-    'id', 'text', 'created_at', 'public_metrics',
+    'id', 'text', 'created_at', 'public_metrics', 'lang',
     'referenced_tweets', 'entities', 'geo', 'attachments'
 ]
 
@@ -24,6 +25,11 @@ media_fields = [
 expansions = [
     'author_id',
     'attachments.media_keys'
+]
+
+user_fields = [
+    'name', 'username', 'public_metrics',
+    'description'
 ]
 
 
@@ -100,10 +106,27 @@ def organizeMedia(media_objects):
     return media_dict
 
 
-def processTweets(tweets_object, tweets_file):
+def organizeAuthors(author_objects):
+    author_dict = {}
+
+    if author_objects:
+        for author in author_objects:
+            author_dict[author.get("id")] = {
+                "username": author.get("username"),
+                "url": f"https://twitter.com/{author.get('username')}",
+                "bio": author.get("description"),
+                "name": author.get("name"),
+                "metrics": author.get("public_metrics")
+            }
+
+    return author_dict
+
+
+def processTweets(tweets_object, tweets_file, include_replies):
     try:
         tweets = tweets_object.get("data")
         media_objects = organizeMedia(tweets_object.get("includes", {}).get("media"))
+        author_objects = organizeAuthors(tweets_object.get("includes", {}).get("users"))
 
         with open(tweets_file, "a", newline='') as tf:
             writer = csv.writer(tf)
@@ -114,15 +137,22 @@ def processTweets(tweets_object, tweets_file):
                 text = tweet.get("text")
                 date = str(tweet.get("created_at"))
 
-                author = tweet.get("author_id")
+                author = author_objects.get(tweet.get("author_id"))
 
                 # tweet metrics
                 metrics = tweet.get("public_metrics")
 
-                # Check for replies
-                replies = getReplies(tweet_id, author)
+
+                if include_replies:
+                    # Check for replies
+                    if int(metrics.get("reply_count")) > 0:
+                        replies = getReplies(tweet_id, author)
+                    else:
+                        replies = []
 
                 entities = tweet.get("entities")
+
+                language = tweet.get("lang")
 
                 hashtags_list = entities.get("hashtags", [])
                 hashtags = [f'#{h.get("tag")}' for h in hashtags_list]
@@ -134,12 +164,19 @@ def processTweets(tweets_object, tweets_file):
                 media = [media_objects.get(m) for m in media_ids]
 
                 # create a link to the tweet
-                url = f"https://twitter.com/{author}/status/{tweet_id}"
+                url = f"https://twitter.com/{author.get('username')}/status/{tweet_id}"
 
                 writer.writerow(
                     [
                         str(tweet_id), text, url,
-                        date, str(author),
+                        date, language,
+                        author.get("username"),
+                        author.get("url"),
+                        author.get("bio"),
+                        author.get("name"),
+                        author.get("metrics").get("followers_count"),
+                        author.get("metrics").get("following_count"),
+                        author.get("metrics").get("tweet_count"),
                         metrics.get("retweet_count"),
                         metrics.get("reply_count"),
                         metrics.get("like_count"),
@@ -150,10 +187,11 @@ def processTweets(tweets_object, tweets_file):
                     ]
                 )
 
-                if replies:
-                    writer.writerow(["", "", "", "", "", "", "", "", "", "", "", "REPLIES"])
-                    for reply in replies:
-                        writer.writerow(reply)
+                if include_replies:
+                    if replies:
+                        writer.writerow(["", "", "", "", "", "", "", "", "", "", "", "REPLIES"])
+                        for reply in replies:
+                            writer.writerow(reply)
 
         return 1  # Just return something to differentiate success and failure
 
@@ -164,7 +202,9 @@ def processTweets(tweets_object, tweets_file):
             return None
 
 
-def getTweets(query):
+# next_token_after_limit param only applies when
+# trying to recover from rate limit reached error
+def getTweets(query, include_replies=False, next_token_after_limit=None):
     # This will help us paginate
     has_next_page = True
 
@@ -177,23 +217,43 @@ def getTweets(query):
         "expansions": ",".join(expansions),
         "max_results": 100,
         "media.fields": ",".join(media_fields),
-        "tweet.fields": ",".join(tweet_fields)
+        "tweet.fields": ",".join(tweet_fields),
+        "user.fields": ",".join(user_fields)
     }
 
+    # if we're recovering from a rate limit error
+    if next_token_after_limit:
+        payload['next_token'] = next_token
+
     while has_next_page:
-        tweets_object = requests.get(
+        response = requests.get(
             "https://api.twitter.com/2/tweets/search/recent",
             params=payload,
             headers=headers
-        ).json()
+        )
 
-        processTweets(tweets_object, 'tweets.csv')
-        next_token = tweets_object.get("meta").get("next_token")
-
-        if next_token:
-            payload["next_token"] = next_token
+        if int(response.status_code) == 429:            
+            # if we have reached the rate limit,
+            # sleep for a minute then call function again
+            # indicating where to start
+            print("Rate limit reached. Sleeping")
+            time.sleep(60)
+            print("Proceeding...")
+            getTweets(query, include_replies, next_token)
         else:
-            has_next_page = False
+            tweets_object = response.json()
+
+            processTweets(tweets_object, 'tweets_5.csv', include_replies)
+
+            # Assumption is we won't reach rate limit on the first
+            # attempt, so next_token will be defined by the time
+            # we need it.
+            next_token = tweets_object.get("meta").get("next_token")
+
+            if next_token:
+                payload["next_token"] = next_token
+            else:
+                has_next_page = False
 
 
 def getHashtags():
@@ -205,12 +265,12 @@ def getHashtags():
 if __name__ == '__main__':
     # Form query and get tweets
     hashtags = getHashtags()
-    query = " OR ".join(hashtags)
+    query = f"-is:retweet ({' OR '.join(hashtags)})"
     query_length = len(query)
 
     if query_length > 512:
         print("There are too many hashtags.")
     else:
-        print(f"Querying Twitter... ")
+        print(f"Querying Twitter, Please Wait...")
         getTweets(query)
         print("\nDONE")
