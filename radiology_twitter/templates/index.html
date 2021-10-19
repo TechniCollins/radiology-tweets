@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <!-- Font Awesome  -->
+  <link
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css"
+    rel="stylesheet"
+  />
+  <!-- Google Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
+    rel="stylesheet"
+  />
+  <!-- MDB -->
+  <link
+    href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.6.0/mdb.min.css"
+    rel="stylesheet"
+  />
+  <title>Radiology Twitter</title>
+</head>
+<body>
+  <section class="vh-100" style="background-color: #eee;">
+    <div class="container py-5 h-100">
+      <div class="row d-flex justify-content-center align-items-center h-100">
+        <div class="col col-lg-9 col-xl-7">
+          <div class="card rounded-3">
+            <div class="card-body p-4">
+
+              <h4 class="text-center my-3 pb-3">Hashtag Editor</h4>
+
+              <form method = "POST" action = "" class="row row-cols-lg-auto g-3 justify-content-center align-items-center mb-4 pb-2">
+                <div class="col-12">
+                  <div class="form-outline">
+                    {% csrf_token %}
+                    <input type="text" id="hashtag-form" name="name" class="form-control" />
+                    <label class="form-label" for="hashtag-form">Enter a hashtag here</label>
+                  </div>
+                </div>
+
+                <div class="col-12">
+                  <button class="btn btn-primary" id = "add-hashtag">Save</button>
+                </div>
+              </form>
+
+              <table class="table mb-4">
+                <thead>
+                  <tr>
+                    <th scope="col"></th>
+                    <th scope="col">Hashtag</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id = "hashtags-list">
+                  {% if hashtags %}
+                    {% for hashtag in hashtags %}
+                        {% if hashtag.enabled %}
+                          <tr>
+                            <th scope="row">{{ hashtag.id }}</th>
+                            <td>#{{ hashtag.name }}</td>
+                            <td>{{ hashtag.enabled }}</td>
+                            <td>
+                              <button class="btn btn-danger change-status" hashtag_id = "{{ hashtag.id }}" enable="False">Disable</button>
+                            </td>
+                          </tr>
+                        {% else %}
+                          <tr>
+                            <th scope="row">{{ hashtag.id }}</th>
+                            <td>#{{ hashtag.name }}</td>
+                            <td>{{ hashtag.enabled }}</td>
+                            <td>
+                              <button class="btn btn-success ms-1 change-status" hashtag_id = "{{ hashtag.id }}" enable="True">Enable</button>
+                            </td>
+                          </tr>
+                        {% endif %}
+                    {% endfor %}
+                  {% else %}
+                    <tr>
+                      <td colspan="4">NO HASHTAGS</td>
+                    </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</body>
+</html>
+
+<script
+  type="text/javascript"
+  src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.6.0/mdb.min.js"
+></script>
+
+
+<!-- JQUERY -->
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+<script type="text/javascript">
+  $(".change-status").click(function () {
+    console.log("ha");
+    var status = $(this).attr("enable");
+    var id = $(this).attr("hashtag_id");
+
+    $.ajax({
+      url: '',
+      data: {
+        'hashtag_id': id,
+        'enabled': status
+      },
+      success : function(data){
+        location.reload();
+      }
+    });
+  });
+</script>
