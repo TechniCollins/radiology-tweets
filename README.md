@@ -2,7 +2,7 @@
 
 ## Google Developer account
 
-You'll need a service account to make changes to spreadsheets. Use [this](https://console.cloud.google.com/iam-admin/serviceaccounts/create) link to create the required project and credentials. Credentials will be downloaded to your local machine. Save the credentials file as `credentials.json` to your project dir.
+You'll need a service account to make changes to spreadsheets. Use [this](https://console.cloud.google.com/iam-admin/serviceaccounts/create) link to create the required project and credentials. Credentials will be downloaded to your local machine. Save the credentials file as `credentials.json` to `twitter_client/management/commands/`.
 
 ## Twitter Develper account
 

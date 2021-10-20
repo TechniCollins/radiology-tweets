@@ -131,4 +131,4 @@ dmypy.json
 # IntelliJ
 .idea/
 
-# credentials.json
+credentials.json
