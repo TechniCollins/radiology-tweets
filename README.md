@@ -27,7 +27,14 @@ Install requirements from the requirements file;
 
 ## Cron job
 
-Write this cron job to allow the script to run every Monday.
+Write this cron job to allow the script to run everyday.
 
-    0 0 * * 1 cd /path/to/project && source env/bin/activate && python get_tweets.py
+### Standard API
+
+    0 0 * * * cd /path/to/project && docker-compose exec web python manage.py get_tweets
+
+
+### Academic Research API
+
+    0 0 * * * cd /path/to/project && docker-compose exec web python manage.py get_tweets --endpoint=academic
 

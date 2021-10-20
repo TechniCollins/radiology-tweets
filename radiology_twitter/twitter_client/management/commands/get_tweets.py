@@ -20,9 +20,9 @@ from twitter_client.models import Hashtag
 class Command(BaseCommand):
     help = 'Queries the twitter API for tweets'
 
-    # def add_arguments(self, parser):
-    #     parser.add_argument('--triggered', type=bool, default=False)
-    #     parser.add_argument('--triggered_by', type=str, default='cron')
+    def add_arguments(self, parser):
+        # parser.add_argument('--endpoint', type=bool, default=False)
+        parser.add_argument('--endpoint', type=str, default='standard')
 
 
     def getReplies(self, tweet_id, author):
@@ -217,8 +217,7 @@ class Command(BaseCommand):
 
     # next_token_after_limit param only applies when
     # trying to recover from rate limit reached error
-    def getTweets(self, query, include_replies=False, next_token_after_limit=None):
-
+    def getTweets(self, url, query, include_replies=False, next_token_after_limit=None):
         # bearer token authentication
         bearer_token = os.environ.get('BEARER_TOKEN')
 
@@ -266,19 +265,23 @@ class Command(BaseCommand):
 
         while has_next_page:
             response = requests.get(
-                "https://api.twitter.com/2/tweets/search/recent",
+                url,
                 params=payload,
                 headers=headers
             )
 
-            if int(response.status_code) == 429:            
-                # if we have reached the rate limit,
-                # sleep for a minute then call function again
-                # indicating where to start
-                print("Rate limit reached. Sleeping")
-                time.sleep(60)
-                print("Proceeding...")
-                self.getTweets(query, include_replies, next_token)
+            if int(response.status_code) != 200:
+                if int(response.status_code) == 429:            
+                    # if we have reached the rate limit,
+                    # sleep for a minute then call function again
+                    # indicating where to start
+                    print("Rate limit reached. Sleeping")
+                    time.sleep(60)
+                    print("Proceeding...")
+                    self.getTweets(url, query, include_replies, next_token)
+                else:
+                    with open("error.txt", "a") as f:
+                        f.write(f'{datetime.datetime.now()}: {response.status_code}: {response.text}\n')
             else:
                 tweets_object = response.json()
 
@@ -301,8 +304,14 @@ class Command(BaseCommand):
         return hashtags
 
     def handle(self, *args, **options):
+        endpoint = options['endpoint']
+
+        if endpoint == "academic":
+            url = "https://api.twitter.com/2/tweets/search/all"
+        else:
+            url = "https://api.twitter.com/2/tweets/search/recent"
+
         hashtags = self.getHashtags()
-        print(hashtags)
         query = f"-is:retweet ({' OR '.join(hashtags)})"
 
         query_length = len(query)
@@ -311,6 +320,6 @@ class Command(BaseCommand):
             print("There are too many hashtags.")
         else:
             print(f"Querying Twitter, Please Wait...")
-            self.getTweets(query)
+            self.getTweets(url, query)
             print("\nDONE")
 
