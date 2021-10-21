@@ -6,7 +6,7 @@ You'll need a service account to make changes to spreadsheets. Use [this](https:
 
 ## Twitter Develper account
 
-You'll need this to get tweets. If you don't have an account, create on [here](https://developer.twitter.com/en/apply/user.html). Create a project with access to API version 2 and generate a bearer token. Add the bearer token to `BEARER_TOKEN` environment variable.
+You'll need this to get tweets. If you don't have an account, create on [here](https://developer.twitter.com/en/apply/user.html). Create a project with access to API version 2 and generate a bearer token. Add the bearer token to `BEARER_TOKEN` environment variable. If you have an academic bearer token add it to the `ACADEMIC_BEARER_TOKEN` variable.
 
 ## Digital Ocean Server
 
@@ -37,4 +37,18 @@ Write this cron job to allow the script to run everyday.
 ### Academic Research API
 
     0 0 * * * cd /path/to/project && docker-compose exec web python manage.py get_tweets --endpoint=academic
+
+
+### Get replies to the tweets returned (incomplete)
+
+You can get the replies to the tweets returned by passing the `--get_replies` command line argument.
+
+0 0 * * * cd /path/to/project && docker-compose exec web python manage.py get_tweets --endpoint=academic --get_replies
+
+    NOTE: The "--get_replies" option doesn't work yet. Avoid using it for now.
+
+
+### Include Retweets
+
+By default, retweets are not included. To get tweets with the specified hashtags/keywords, even if they are retweets, add the `--include_retweets` command line argument.
 

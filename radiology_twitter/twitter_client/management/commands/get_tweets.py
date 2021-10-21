@@ -14,14 +14,15 @@ import datetime
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 
-from twitter_client.models import Hashtag
+from twitter_client.models import (Hashtag, Tweet)
 
 
 class Command(BaseCommand):
     help = 'Queries the twitter API for tweets'
 
     def add_arguments(self, parser):
-        # parser.add_argument('--endpoint', type=bool, default=False)
+        parser.add_argument('--get_replies', action='store_true')
+        parser.add_argument('--include_retweets', action='store_true')
         parser.add_argument('--endpoint', type=str, default='standard')
 
 
@@ -114,97 +115,90 @@ class Command(BaseCommand):
         return author_dict
 
 
-    def processTweets(self, tweets_object, include_replies):
-        BASE_DIR = Path(__file__).resolve().parent
-
-        SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-        SERVICE_ACCOUNT_FILE = f"{BASE_DIR}/credentials.json"
-
-        credentials = service_account.Credentials.from_service_account_file(
-                SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    def processTweets(self, tweets_object, get_replies):
+        # A list of tweet instances to bulk insert later
+        tweet_instances = []
 
         try:
             tweets = tweets_object.get("data")
             media_objects = self.organizeMedia(tweets_object.get("includes", {}).get("media"))
             author_objects = self.organizeAuthors(tweets_object.get("includes", {}).get("users"))
 
-            with build('sheets', 'v4', credentials=credentials) as service:
-                tweets_list = []
+            for tweet in tweets:
+                # Primary tweet attributes
+                tweet_id = tweet.get("id")
+                text = tweet.get("text")
+                date = str(tweet.get("created_at"))
 
-                for tweet in tweets:
-                    # Primary tweet attributes
-                    tweet_id = tweet.get("id")
-                    text = tweet.get("text")
-                    date = str(tweet.get("created_at"))
+                author = author_objects.get(tweet.get("author_id"))
 
-                    author = author_objects.get(tweet.get("author_id"))
+                # tweet metrics
+                metrics = tweet.get("public_metrics")
 
-                    # tweet metrics
-                    metrics = tweet.get("public_metrics")
+                if get_replies:
+                    # Check for replies
+                    if int(metrics.get("reply_count")) > 0:
+                        replies = self.getReplies(tweet_id, author)
+                    else:
+                        replies = []
 
+                entities = tweet.get("entities", {})
 
-                    if include_replies:
-                        # Check for replies
-                        if int(metrics.get("reply_count")) > 0:
-                            replies = self.getReplies(tweet_id, author)
-                        else:
-                            replies = []
+                language = tweet.get("lang")
 
-                    entities = tweet.get("entities", {})
+                hashtags_list = entities.get("hashtags", [])
+                hashtags = [f'#{h.get("tag")}' for h in hashtags_list]
 
-                    language = tweet.get("lang")
+                mentions_list = entities.get("mentions", [])
+                mentions = [f'@{m.get("username")}' for m in mentions_list]
 
-                    hashtags_list = entities.get("hashtags", [])
-                    hashtags = [f'#{h.get("tag")}' for h in hashtags_list]
+                media_ids = (tweet.get("attachments", {})).get("media_keys", [])
+                media = [media_objects.get(m) for m in media_ids]
 
-                    mentions_list = entities.get("mentions", [])
-                    mentions = [f'@{m.get("username")}' for m in mentions_list]
+                # create a link to the tweet
+                url = f"https://twitter.com/{author.get('username')}/status/{tweet_id}"
 
-                    media_ids = (tweet.get("attachments", {})).get("media_keys", [])
-                    media = [media_objects.get(m) for m in media_ids]
-
-                    # create a link to the tweet
-                    url = f"https://twitter.com/{author.get('username')}/status/{tweet_id}"
-
-                    tweets_list.append(
-                        [
-                            str(tweet_id), text, url,
-                            date, language,
-                            author.get("username"),
-                            author.get("url"),
-                            author.get("bio"),
-                            author.get("name"),
-                            author.get("metrics").get("followers_count"),
-                            author.get("metrics").get("following_count"),
-                            author.get("metrics").get("tweet_count"),
-                            metrics.get("retweet_count"),
-                            metrics.get("reply_count"),
-                            metrics.get("like_count"),
-                            metrics.get("quote_count"),
-                            ", ".join(mentions),
-                            ", ".join(hashtags),
-                            ", ".join(media)
-                        ]
+                tweet_instances.append(
+                    Tweet(
+                        tweet_id = str(tweet_id),
+                        text = text,
+                        # Tweet url is given by;
+                        # f"https://twitter.com/{{ to.author_username }}/status/{{ to.tweet_id }}"
+                        created_at = date,  # in UTC
+                        language = language,
+                        mentions = ",".join(mentions),
+                        hashtags = ",".join(hashtags),
+                        media = ",".join(media),
+                        # Tweet metrics
+                        retweet_count = metrics.get("retweet_count"),
+                        reply_count = metrics.get("reply_count"),
+                        like_count = metrics.get("like_count"),
+                        quote_count = metrics.get("quote_count"),
+                        # No need to normalize author data because
+                        # we may potentially be dealing with big data.
+                        author_id = tweet.get("author_id"),
+                        author_username = author.get("username"),
+                        # Author url is given by;
+                        # f"https://twitter.com/{{ to.author_username }}"
+                        author_bio = author.get("bio"),
+                        author_name = author.get("name"),
+                        # Author metrics
+                        author_followers_count = author.get("metrics").get("followers_count"),
+                        author_following_count = author.get("metrics").get("following_count"),
+                        author_tweet_count = author.get("metrics").get("tweet_count")
                     )
+                )
 
-                    if include_replies:
-                        if replies:
-                            tweets_list.append(["", "", "", "", "", "", "", "", "", "", "", "REPLIES"])
-                            for reply in replies:
-                                tweets_list.append(reply)
+                # retweet_to = 
 
-                # Write to sheets
-                resource = {
-                  "majorDimension": "ROWS",
-                  "values": tweets_list
-                }
-                spreadsheet_id = os.environ.get("SPREADSHEET_ID")
-                service.spreadsheets().values().append(
-                  spreadsheetId=spreadsheet_id,
-                  range="Sheet1!A:A",
-                  body=resource,
-                  valueInputOption="USER_ENTERED"
-                ).execute()
+                if get_replies:
+                    # reply_to = 
+                    if replies:
+                        for reply in replies:
+                            tweet_instances.append(reply)
+
+            # Bulk insert tweets
+            Tweet.objects.bulk_create(tweet_instances, ignore_conflicts=True)
 
             return 1  # Just return something to differentiate success and failure
 
@@ -217,9 +211,13 @@ class Command(BaseCommand):
 
     # next_token_after_limit param only applies when
     # trying to recover from rate limit reached error
-    def getTweets(self, url, query, include_replies=False, next_token_after_limit=None):
-        # bearer token authentication
-        bearer_token = os.environ.get('BEARER_TOKEN')
+    def getTweets(self, endpoint, query, get_replies=False, next_token_after_limit=None):
+        if endpoint == "academic":
+            url = "https://api.twitter.com/2/tweets/search/all"
+            bearer_token = os.environ.get('ACADEMIC_BEARER_TOKEN')
+        else:
+            url = "https://api.twitter.com/2/tweets/search/recent"
+            bearer_token = os.environ.get('BEARER_TOKEN')
 
         # The tweet attributes to be returned by the API
         tweet_fields = [
@@ -278,14 +276,14 @@ class Command(BaseCommand):
                     print("Rate limit reached. Sleeping")
                     time.sleep(60)
                     print("Proceeding...")
-                    self.getTweets(url, query, include_replies, next_token)
+                    self.getTweets(endpoint, query, get_replies, next_token)
                 else:
                     with open("error.txt", "a") as f:
                         f.write(f'{datetime.datetime.now()}: {response.status_code}: {response.text}\n')
             else:
                 tweets_object = response.json()
 
-                self.processTweets(tweets_object, include_replies)
+                self.processTweets(tweets_object, get_replies)
 
                 # Assumption is we won't reach rate limit on the first
                 # attempt, so next_token will be defined by the time
@@ -297,6 +295,32 @@ class Command(BaseCommand):
                 else:
                     has_next_page = False
 
+    
+    def getTweetVolumes(self, endpoint, query):
+        if endpoint != "academic":
+            print("Tweet volumes are only available for the academic track")
+            return
+
+        bearer_token = os.environ.get('ACADEMIC_BEARER_TOKEN')
+
+        headers = {
+            "Authorization": f"Bearer {bearer_token}"
+        }
+
+        payload = {
+            "query": query,
+        }
+
+        url = 'https://api.twitter.com/2/tweets/counts/all'
+
+        response = requests.get(
+            url,
+            params=payload,
+            headers=headers
+        )
+
+        return
+
 
     def getHashtags(self):
         hashtags = [x.name for x in Hashtag.objects.filter(enabled=True)]
@@ -305,14 +329,19 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         endpoint = options['endpoint']
-
-        if endpoint == "academic":
-            url = "https://api.twitter.com/2/tweets/search/all"
-        else:
-            url = "https://api.twitter.com/2/tweets/search/recent"
+        get_replies = options['get_replies']
+        include_retweets = options['include_retweets']
 
         hashtags = self.getHashtags()
-        query = f"-is:retweet ({' OR '.join(hashtags)})"
+
+        if include_retweets:
+            query = f"{' OR '.join([f'#{x}' for x in hashtags])}"
+        else:
+            query = f"-is:retweet ({' OR '.join([f'#{x}' for x in hashtags])})"
+
+
+        self.getTweetVolumes(endpoint, query)
+        exit()
 
         query_length = len(query)
 
@@ -320,6 +349,5 @@ class Command(BaseCommand):
             print("There are too many hashtags.")
         else:
             print(f"Querying Twitter, Please Wait...")
-            self.getTweets(url, query)
+            self.getTweets(endpoint, query)
             print("\nDONE")
-
