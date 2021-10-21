@@ -20,4 +20,4 @@ RUN rm requirements.txt
 ADD ./radiology_twitter/ $APP_HOME
 
 # collect static files
-# RUN $APP_HOME/manage.py collectstatic
+# RUN $APP_HOME/manage.py migrate
