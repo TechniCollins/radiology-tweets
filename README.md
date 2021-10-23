@@ -25,30 +25,33 @@ Install requirements from the requirements file;
 	pip install -r requirements.txt
 
 
+# USAGE
+
+
 ## Cron job
 
 Write this cron job to allow the script to run everyday.
 
-### Standard API
-
     0 0 * * * cd /path/to/project && docker-compose exec web python manage.py get_tweets
 
 
-### Academic Research API
+## Getting Full Archive via Academic Research API
 
-    0 0 * * * cd /path/to/project && docker-compose exec web python manage.py get_tweets --endpoint=academic
+You can do this from the User Interface or by running the following command directly;
 
-
-### Get replies to the tweets returned (incomplete)
-
-You can get the replies to the tweets returned by passing the `--get_replies` command line argument.
-
-0 0 * * * cd /path/to/project && docker-compose exec web python manage.py get_tweets --endpoint=academic --get_replies
-
-    NOTE: The "--get_replies" option doesn't work yet. Avoid using it for now.
+    docker-compose exec web python manage.py get_tweets --endpoint=academic --fromdate=202011270000 --todate=202110232359
 
 
-### Include Retweets
+## Get replies to the tweets returned
 
-By default, retweets are not included. To get tweets with the specified hashtags/keywords, even if they are retweets, add the `--include_retweets` command line argument.
+You can choose to also get replies to tweets by passing the `--get_replies` command line argument. For the academic track, you can also do this from the UI.
+
+    0 0 * * * cd /path/to/project && docker-compose exec web python manage.py get_tweets --get_replies
+
+
+## Include Retweets
+
+By default, retweets are not included. To get tweets with the specified hashtags/keywords, even if they are retweets, add the `--include_retweets` command line argument. For the academic track, you can also do this from the UI.
+
+    0 0 * * * cd /path/to/project && docker-compose exec web python manage.py get_tweets --get_replies
 

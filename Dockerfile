@@ -20,3 +20,6 @@ RUN rm requirements.txt
 ADD ./radiology_twitter/ $APP_HOME
 
 RUN $APP_HOME/manage.py migrate
+
+# Populate Default Data
+# $APP_HOME/manage.py loaddata endpoints

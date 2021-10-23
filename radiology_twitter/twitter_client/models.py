@@ -1,4 +1,26 @@
 from django.db import models
+from django.core.validators import MinLengthValidator
+from django.db.models import UniqueConstraint
+
+
+class Endpoint(models.Model):
+    name = models.CharField(max_length=20, unique=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Hashtag(models.Model):
+    name = models.CharField(max_length=200, validators=[MinLengthValidator(limit_value=2)])
+    # minimum length is 2 i.e a hashtag and at least 1 character
+    enabled = models.BooleanField(default=True)
+    endpoint = models.ForeignKey(Endpoint, on_delete=models.CASCADE)
+
+    class meta:
+        UniqueConstraint(fields = ['name', 'endpoint'], name = 'unique_hashtag')
+
+    def __str__(self):
+        return f"# {str(self.name)}"
 
 
 class Tweet(models.Model):
@@ -40,9 +62,17 @@ class Tweet(models.Model):
     def __str__(self):
         return self.tweet_id
 
-class Hashtag(models.Model):
-    name = models.CharField(max_length=200, unique=True)
-    enabled = models.BooleanField(default=True)
 
-    def __str__(self):
-        return f"# {str(self.name)}"
+class TweetHashtagMap(models.Model):
+    tweet = models.ForeignKey(Tweet, on_delete=models.CASCADE)
+    hashtag = models.ForeignKey(Hashtag, on_delete=models.CASCADE)
+
+    class meta:
+        UniqueConstraint(fields = ['tweet', 'hashtag'], name = 'unique_hashtag')
+
+
+class Volume(models.Model):
+    hashtag = models.ForeignKey(Hashtag, on_delete=models.CASCADE)
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
+    tweet_count = models.IntegerField()

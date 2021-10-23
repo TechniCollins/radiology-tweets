@@ -14,7 +14,10 @@ import datetime
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 
-from twitter_client.models import (Hashtag, Tweet)
+from twitter_client.models import (
+    Hashtag, Tweet,
+    TweetHashtagMap, Volume
+)
 
 
 class Command(BaseCommand):
@@ -24,6 +27,8 @@ class Command(BaseCommand):
         parser.add_argument('--get_replies', action='store_true')
         parser.add_argument('--include_retweets', action='store_true')
         parser.add_argument('--endpoint', type=str, default='standard')
+        parser.add_argument('--start_time', type=str)
+        parser.add_argument('--end_time', type=str)
 
 
     def getReplies(self, tweet_id, author):
@@ -115,10 +120,7 @@ class Command(BaseCommand):
         return author_dict
 
 
-    def processTweets(self, tweets_object, get_replies):
-        # A list of tweet instances to bulk insert later
-        tweet_instances = []
-
+    def processTweets(self, hashtag, tweets_object, get_replies):
         try:
             tweets = tweets_object.get("data")
             media_objects = self.organizeMedia(tweets_object.get("includes", {}).get("media"))
@@ -158,35 +160,40 @@ class Command(BaseCommand):
                 # create a link to the tweet
                 url = f"https://twitter.com/{author.get('username')}/status/{tweet_id}"
 
-                tweet_instances.append(
-                    Tweet(
-                        tweet_id = str(tweet_id),
-                        text = text,
+                tweet_instance = Tweet.objects.get_or_create(
+                    tweet_id = str(tweet_id),
+                    defaults={
+                        "text": text,
                         # Tweet url is given by;
                         # f"https://twitter.com/{{ to.author_username }}/status/{{ to.tweet_id }}"
-                        created_at = date,  # in UTC
-                        language = language,
-                        mentions = ",".join(mentions),
-                        hashtags = ",".join(hashtags),
-                        media = ",".join(media),
+                        "created_at": date,  # in UTC
+                        "language": language,
+                        "mentions": ",".join(mentions),
+                        "hashtags": ",".join(hashtags),
+                        "media": ",".join(media),
                         # Tweet metrics
-                        retweet_count = metrics.get("retweet_count"),
-                        reply_count = metrics.get("reply_count"),
-                        like_count = metrics.get("like_count"),
-                        quote_count = metrics.get("quote_count"),
+                        "retweet_count": metrics.get("retweet_count"),
+                        "reply_count": metrics.get("reply_count"),
+                        "like_count": metrics.get("like_count"),
+                        "quote_count": metrics.get("quote_count"),
                         # No need to normalize author data because
                         # we may potentially be dealing with big data.
-                        author_id = tweet.get("author_id"),
-                        author_username = author.get("username"),
+                        "author_id": tweet.get("author_id"),
+                        "author_username": author.get("username"),
                         # Author url is given by;
                         # f"https://twitter.com/{{ to.author_username }}"
-                        author_bio = author.get("bio"),
-                        author_name = author.get("name"),
+                        "author_bio": author.get("bio"),
+                        "author_name": author.get("name"),
                         # Author metrics
-                        author_followers_count = author.get("metrics").get("followers_count"),
-                        author_following_count = author.get("metrics").get("following_count"),
-                        author_tweet_count = author.get("metrics").get("tweet_count")
-                    )
+                        "author_followers_count": author.get("metrics").get("followers_count"),
+                        "author_following_count": author.get("metrics").get("following_count"),
+                        "author_tweet_count": author.get("metrics").get("tweet_count")
+                    }
+                )
+
+                TweetHashtagMap.objects.get_or_create(
+                    tweet=tweet_instance[0],
+                    hashtag=hashtag
                 )
 
                 # retweet_to = 
@@ -198,7 +205,7 @@ class Command(BaseCommand):
                             tweet_instances.append(reply)
 
             # Bulk insert tweets
-            Tweet.objects.bulk_create(tweet_instances, ignore_conflicts=True)
+            # Tweet.objects.bulk_create(tweet_instances, ignore_conflicts=True)
 
             return 1  # Just return something to differentiate success and failure
 
@@ -211,7 +218,7 @@ class Command(BaseCommand):
 
     # next_token_after_limit param only applies when
     # trying to recover from rate limit reached error
-    def getTweets(self, endpoint, query, get_replies=False, next_token_after_limit=None):
+    def getTweets(self, endpoint, query, timespan, hashtag, get_replies=False, next_token_after_limit=None):
         if endpoint == "academic":
             url = "https://api.twitter.com/2/tweets/search/all"
             bearer_token = os.environ.get('ACADEMIC_BEARER_TOKEN')
@@ -257,6 +264,10 @@ class Command(BaseCommand):
             "user.fields": ",".join(user_fields)
         }
 
+        if timespan:
+            payload['start_time'] = timespan.get('start_time')
+            payload['end_time'] = timespan.get('end_time')
+
         # if we're recovering from a rate limit error
         if next_token_after_limit:
             payload['next_token'] = next_token
@@ -276,14 +287,14 @@ class Command(BaseCommand):
                     print("Rate limit reached. Sleeping")
                     time.sleep(60)
                     print("Proceeding...")
-                    self.getTweets(endpoint, query, get_replies, next_token)
+                    self.getTweets(endpoint, query, timespan, hashtag, get_replies, next_token)
                 else:
                     with open("error.txt", "a") as f:
                         f.write(f'{datetime.datetime.now()}: {response.status_code}: {response.text}\n')
             else:
                 tweets_object = response.json()
 
-                self.processTweets(tweets_object, get_replies)
+                self.processTweets(hashtag, tweets_object, get_replies)
 
                 # Assumption is we won't reach rate limit on the first
                 # attempt, so next_token will be defined by the time
@@ -296,11 +307,7 @@ class Command(BaseCommand):
                     has_next_page = False
 
     
-    def getTweetVolumes(self, endpoint, query):
-        if endpoint != "academic":
-            print("Tweet volumes are only available for the academic track")
-            return
-
+    def getTweetVolumes(self, endpoint, query, timespan, hashtag):
         bearer_token = os.environ.get('ACADEMIC_BEARER_TOKEN')
 
         headers = {
@@ -311,6 +318,10 @@ class Command(BaseCommand):
             "query": query,
         }
 
+        if timespan:
+            payload['start_time'] = timespan.get('start_time')
+            payload['end_time'] = timespan.get('end_time')
+
         url = 'https://api.twitter.com/2/tweets/counts/all'
 
         response = requests.get(
@@ -319,11 +330,35 @@ class Command(BaseCommand):
             headers=headers
         )
 
+        if int(response.status_code) == 200:
+            volume_objects = []
+
+            for x in response.json().get("data", []):
+                volume_objects.append(
+                    Volume(
+                        hashtag=hashtag,
+                        start_time=x.get("start"),
+                        end_time=x.get("end"),
+                        tweet_count=x.get("tweet_count")
+                    )
+                )
+
+                Volume.objects.bulk_create(volume_objects)
+
         return
 
 
-    def getHashtags(self):
-        hashtags = [x.name for x in Hashtag.objects.filter(enabled=True)]
+    def getHashtags(self, endpoint):
+        if endpoint == "academic":
+            hashtags = Hashtag.objects.filter(
+                    enabled=True,
+                    endpoint__name="academic"
+            )
+        else:
+            hashtags = Hashtag.objects.filter(
+                    enabled=True,
+                    endpoint__name="standard"
+            )
 
         return hashtags
 
@@ -332,22 +367,26 @@ class Command(BaseCommand):
         get_replies = options['get_replies']
         include_retweets = options['include_retweets']
 
-        hashtags = self.getHashtags()
+        start_time = options['start_time']
+        end_time = options['end_time']
 
-        if include_retweets:
-            query = f"{' OR '.join([f'#{x}' for x in hashtags])}"
-        else:
-            query = f"-is:retweet ({' OR '.join([f'#{x}' for x in hashtags])})"
+        hashtags = self.getHashtags(endpoint)
 
+        for hashtag in hashtags:
+            if include_retweets:
+                query = f"#{hashtag.name}"
+            else:
+                query = f"-is:retweet #{hashtag.name}"
 
-        self.getTweetVolumes(endpoint, query)
-        exit()
+            if start_time and end_time:
+                timespan = {"start_time": start_time, "end_time": end_time}
+            else:
+                timespan = None
 
-        query_length = len(query)
+            print(f"Querying Twitter for #{hashtag.name}")
+            self.getTweets(endpoint, query, timespan, hashtag, get_replies)
 
-        if query_length > 512:
-            print("There are too many hashtags.")
-        else:
-            print(f"Querying Twitter, Please Wait...")
-            self.getTweets(endpoint, query)
-            print("\nDONE")
+            if endpoint == "academic":
+                self.getTweetVolumes(endpoint, query, timespan, hashtag)
+        
+        print("\nDONE")

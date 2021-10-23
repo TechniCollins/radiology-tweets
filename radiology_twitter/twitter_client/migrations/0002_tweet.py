@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('tweet_id', models.CharField(max_length=50, unique=True)),
-                ('text', models.CharField(max_length=1000, unique=True)),
+                ('text', models.CharField(max_length=1000)),
                 ('created_at', models.DateTimeField()),
                 ('language', models.CharField(max_length=10)),
                 ('mentions', models.CharField(max_length=1000)),

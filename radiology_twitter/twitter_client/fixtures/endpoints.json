@@ -1,0 +1,16 @@
+[
+  {
+    "model": "twitter_client.Endpoint",
+    "pk": 1,
+    "fields": {
+      "name": "standard"
+    }
+  },
+  {
+    "model": "twitter_client.Endpoint",
+    "pk": 2,
+    "fields": {
+      "name": "academic"
+    }
+  }
+]

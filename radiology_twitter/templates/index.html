@@ -20,71 +20,151 @@
   <title>Radiology Twitter</title>
 </head>
 <body>
-  <section class="vh-100" style="background-color: #eee;">
+  <section class="vh-100 gradient-custom">
     <div class="container py-5 h-100">
-      <div class="row d-flex justify-content-center align-items-center h-100" style="overflow-y: scroll;">
-        <div class="col col-lg-9 col-xl-7">
-          <div class="card rounded-3">
-            <div class="card-body p-4">
+      <div class="row d-flex justify-content-center align-items-center h-100" style="overflow-y: scroll">
+        <div class="col col-xl-7">
 
-              <h4 class="text-center my-3 pb-3">Hashtag Editor</h4>
+          <div class="card">
+            <div class="card-body p-5">
 
-              <form method = "POST" action = "" class="row row-cols-lg-auto g-3 justify-content-center align-items-center mb-4 pb-2">
-                <div class="col-12">
-                  <div class="form-outline">
+              <!-- Tabs navs -->
+              <ul class="nav nav-tabs mb-4 pb-2" id="ex1" role="tablist">
+                <li class="nav-item" role="presentation">
+                  <a class="nav-link active" id="ex1-tab-1" data-mdb-toggle="tab" href="#ex1-tabs-1" role="tab"
+                    aria-controls="ex1-tabs-1" aria-selected="true">STANDARD</a>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <a class="nav-link" id="ex1-tab-2" data-mdb-toggle="tab" href="#ex1-tabs-2" role="tab"
+                    aria-controls="ex1-tabs-2" aria-selected="false">FULL ARCHIVE (ACADEMIC)</a>
+                </li>
+              </ul>
+              <!-- Tabs navs -->
+
+              <!-- Tabs content -->
+              <div class="tab-content" id="ex1-content">
+                <div class="tab-pane fade show active" id="ex1-tabs-1" role="tabpanel" aria-labelledby="ex1-tab-1">
+
+                  <form method = "POST" action = "" class="d-flex justify-content-center align-items-center mb-4">
+                    <div class="form-outline flex-fill">
+                      <input type="text" id="hashtag-form" name="name" required class="form-control" />
+                      <input type = "text" name="endpoint" value = "standard" hidden>
+                      {% csrf_token %}
+                      <label class="form-label" for="form2">New Hashtag</label>
+                    </div>
+                    <button type="submit" class="btn btn-info ms-2">Save</button>
+                  </form>
+
+                  <table class="table mb-4">
+                    <thead>
+                      <tr>
+                        <th scope="col"></th>
+                        <th scope="col">Hashtag</th>
+                        <th>Status</th>
+                        <th scope="col">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id = "hashtags-list">
+                      {% if standard_hashtags %}
+                        {% for hashtag in standard_hashtags %}
+                            {% if hashtag.enabled %}
+                              <tr>
+                                <th scope="row">{{ hashtag.id }}</th>
+                                <td>#{{ hashtag.name }}</td>
+                                <td>Active</td>
+                                <td>
+                                  <button class="btn btn-danger change-status" hashtag_id = "{{ hashtag.id }}" enable="False">Disable</button>
+                                </td>
+                              </tr>
+                            {% else %}
+                              <tr>
+                                <th scope="row">{{ hashtag.id }}</th>
+                                <td>#{{ hashtag.name }}</td>
+                                <td>Inactive</td>
+                                <td>
+                                  <button class="btn btn-success ms-1 change-status" hashtag_id = "{{ hashtag.id }}" enable="True">Enable</button>
+                                </td>
+                              </tr>
+                            {% endif %}
+                        {% endfor %}
+                      {% else %}
+                        <tr>
+                          <td colspan="4">NO HASHTAGS</td>
+                        </tr>
+                      {% endif %}
+                    </tbody>
+                  </table>
+                </div>
+                <div class="tab-pane fade" id="ex1-tabs-2" role="tabpanel" aria-labelledby="ex1-tab-2">
+                  <form method="POST" action="" class="d-flex justify-content-center align-items-center mb-4">
+                    <div class="form-outline flex-fill">
+                      <input type="text" id="hashtag-form" name="name" required class="form-control" />
+                      <input type = "text" name="endpoint" value = "academic" hidden>
+                      {% csrf_token %}
+                      <label class="form-label" for="form2">New Hashtag</label>
+                    </div>
+                    <button type="submit" class="btn btn-info ms-2">Save</button>
+                  </form>
+
+
+                  <h4>Run full archive search</h4>
+
+                  <form method="POST" action="{% url 'full-archive-search' %}">
+
                     {% csrf_token %}
-                    <input type="text" id="hashtag-form" name="name" class="form-control" />
-                    <label class="form-label" for="hashtag-form">Enter a hashtag here</label>
-                  </div>
-                </div>
+                    <label class = "form-check-label" for="">Start</label>
+                    <input type="date" name="startDate" id="startDate" required>
+                    <label class = "form-check-label" for="">End</label>
+                    <input type="date" name="endDate" id="endDate" required>
+                    <br>
 
-                <div class="col-12">
-                  <button class="btn btn-primary" id = "add-hashtag">Save</button>
-                </div>
-              </form>
+                    <div class="form-check form-check-inline">
+                        <input type="checkbox" class="form-check-input" name="includeRetweets">
+                        <label class="form-check-label" for="includeRetweets">Include Retweets</label>
+                    </div>
 
-              <table class="table mb-4">
-                <thead>
-                  <tr>
-                    <th scope="col"></th>
-                    <th scope="col">Hashtag</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id = "hashtags-list">
-                  {% if hashtags %}
-                    {% for hashtag in hashtags %}
-                        {% if hashtag.enabled %}
+                    <div class="form-check form-check-inline">
+                        <input type="checkbox" class="form-check-input" name="getReplies">
+                        <label class="form-check-label" for="getReplies">Get Replies</label>
+                    </div>
+
+                    <button type="submit" class="btn btn-info ms-2">START SEARCH</button>
+
+                  </form>
+
+                  <table class="table mb-4">
+                    <thead>
+                      <tr>
+                        <th scope="col"></th>
+                        <th scope="col">Hashtag</th>
+                        <th scope="col">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id = "hashtags-list">
+                      {% if academic_hashtags %}
+                        {% for hashtag in academic_hashtags %}
                           <tr>
                             <th scope="row">{{ hashtag.id }}</th>
                             <td>#{{ hashtag.name }}</td>
-                            <td>{{ hashtag.enabled }}</td>
                             <td>
-                              <button class="btn btn-danger change-status" hashtag_id = "{{ hashtag.id }}" enable="False">Disable</button>
+                              <button class="btn btn-danger change-status" hashtag_id = "{{ hashtag.id }}" enable="False">Delete</button>
                             </td>
                           </tr>
-                        {% else %}
-                          <tr>
-                            <th scope="row">{{ hashtag.id }}</th>
-                            <td>#{{ hashtag.name }}</td>
-                            <td>{{ hashtag.enabled }}</td>
-                            <td>
-                              <button class="btn btn-success ms-1 change-status" hashtag_id = "{{ hashtag.id }}" enable="True">Enable</button>
-                            </td>
-                          </tr>
-                        {% endif %}
-                    {% endfor %}
-                  {% else %}
-                    <tr>
-                      <td colspan="4">NO HASHTAGS</td>
-                    </tr>
-                  {% endif %}
-                </tbody>
-              </table>
+                        {% endfor %}
+                      {% else %}
+                        <tr>
+                          <td colspan="4">NO HASHTAGS</td>
+                        </tr>
+                      {% endif %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <!-- Tabs content -->
 
             </div>
           </div>
+
         </div>
       </div>
     </div>
