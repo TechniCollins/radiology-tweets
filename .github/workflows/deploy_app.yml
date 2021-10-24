@@ -12,6 +12,7 @@ jobs:
     runs-on: [self-hosted]
     steps:
       - uses: actions/checkout@v2
+      - working-directory: /root/radiology-tweets
       - run: docker-compose up --build -d
 
 
@@ -23,6 +24,7 @@ jobs:
 # # Extract the installer
 # tar xzf ./actions-runner-linux-x64-2.283.3.tar.gz
 # RUNNER_ALLOW_RUNASROOT="1" ./config.sh --url https://github.com/TechniCollins/radiology-tweets --token AI5MT46WUSDQXSMVUOLOJJDBOWQOA
+# RUNNER_ALLOW_RUNASROOT="1" ./run.sh
 
 # SOME MORE HELP
 # https://docs.github.com/en/actions/hosting-your-own-runners/adding-self-hosted-runners
