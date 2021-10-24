@@ -15,7 +15,7 @@ jobs:
         working-directory: /root/radiology-tweets
     steps:
       - uses: actions/checkout@v2
-      - run: docker-compose up --build -d
+      - run: docker-compose down -v && docker-compose up --build -d
 
 
 # # Installing the runner
@@ -26,7 +26,7 @@ jobs:
 # # Extract the installer
 # tar xzf ./actions-runner-linux-x64-2.283.3.tar.gz
 # RUNNER_ALLOW_RUNASROOT="1" ./config.sh --url https://github.com/TechniCollins/radiology-tweets --token AI5MT46WUSDQXSMVUOLOJJDBOWQOA
-# RUNNER_ALLOW_RUNASROOT="1" ./run.sh
+# RUNNER_ALLOW_RUNASROOT="1" ./run.sh &
 
 # SOME MORE HELP
 # https://docs.github.com/en/actions/hosting-your-own-runners/adding-self-hosted-runners
@@ -34,3 +34,4 @@ jobs:
 # must not run as sudo
 # https://serverfault.com/questions/1052695/must-not-run-with-sudo-while-trying-to-create-a-runner-using-github-actions
 
+# https://docs.github.com/en/actions/hosting-your-own-runners/configuring-the-self-hosted-runner-application-as-a-service
