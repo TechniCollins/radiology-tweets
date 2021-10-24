@@ -12,7 +12,7 @@ WORKDIR $APP_HOME
 
 # Install mysql dependencis
 RUN apt update \
-    && apt install libmysqlclient-dev gcc python3-dev
+    && apt install default-libmysqlclient-dev gcc python3-dev
 
 # Install pip packages
 ADD ./requirements.txt .
