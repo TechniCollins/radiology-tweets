@@ -11,8 +11,8 @@ RUN mkdir -p $APP_HOME
 WORKDIR $APP_HOME
 
 # Install mysql dependencis
-RUN apk update \
-    && apk add libmysqlclient-dev gcc python3-dev
+RUN apt update \
+    && apt add libmysqlclient-dev gcc python3-dev
 
 # Install pip packages
 ADD ./requirements.txt .
