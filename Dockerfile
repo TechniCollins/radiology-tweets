@@ -10,6 +10,10 @@ ENV PYTHONUNBUFFERED 1
 RUN mkdir -p $APP_HOME
 WORKDIR $APP_HOME
 
+# Install mysql dependencis
+RUN apk update \
+    && apk add libmysqlclient-dev gcc python3-dev
+
 # Install pip packages
 ADD ./requirements.txt .
 RUN pip install -r requirements.txt
