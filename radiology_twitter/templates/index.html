@@ -99,6 +99,7 @@
                     </tbody>
                   </table>
                 </div>
+
                 <div class="tab-pane fade" id="ex1-tabs-2" role="tabpanel" aria-labelledby="ex1-tab-2">
                   <form method="POST" action="" class="d-flex justify-content-center align-items-center mb-4">
                     <div class="form-outline flex-fill">
@@ -164,7 +165,7 @@
                   </table>
                 </div>
 
-                <div class="tab-pane fade show active" id="ex1-tabs-3" role="tabpanel" aria-labelledby="ex1-tab-3">
+                <div class="tab-pane fade" id="ex1-tabs-3" role="tabpanel" aria-labelledby="ex1-tab-3">
                   <form method = "POST" action = "{% url 'export-data' %}" class="row row-cols-lg-auto g-3 align-items-center">
                     {% csrf_token %}
                     <div class = "col-12">
@@ -185,6 +186,7 @@
                     </div>
                   </form>
                 </div>
+
               </div>
               <!-- Tabs content -->
 
