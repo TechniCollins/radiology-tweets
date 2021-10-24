@@ -1,8 +1,10 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
-from . models import Hashtag, Endpoint
+from . models import Hashtag, Endpoint, Tweet
 
 from django.core.management import call_command
+
+import csv
 
 
 def hashtagsEditor(request):
@@ -57,6 +59,7 @@ def hashtagsEditor(request):
 def dateToTimestamp(date, time_string):
     return f"{date}T{time_string}Z"
 
+
 def fullArchive(request):
     start = request.POST.get("startDate")
     end = request.POST.get("endDate")
@@ -79,3 +82,27 @@ def fullArchive(request):
     call_command('get_tweets', **command_arguments)
 
     return HttpResponse("Search ended successfully")
+
+
+def exportData(request):
+    fromdate = request.POST.get("fromdate")
+    todate = request.POST.get("todate")
+
+    response = HttpResponse(
+        content_type='text/csv',
+        headers={'Content-Disposition': 'attachment; filename="somefilename.csv"'},
+    )
+
+    writer = csv.writer(response)
+
+    fields = [f.name for f in Tweet._meta.fields]
+
+    # Write first row (Headers)
+    writer.writerow(fields)
+
+    for row in Tweet.objects.filter(
+        created_at__range=(fromdate, todate)
+        ).values(*fields):
+        writer.writerow([row[field] for field in fields])
+
+    return response

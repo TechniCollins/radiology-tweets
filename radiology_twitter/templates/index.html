@@ -38,6 +38,10 @@
                   <a class="nav-link" id="ex1-tab-2" data-mdb-toggle="tab" href="#ex1-tabs-2" role="tab"
                     aria-controls="ex1-tabs-2" aria-selected="false">FULL ARCHIVE (ACADEMIC)</a>
                 </li>
+                <li class="nav-item" role="presentation">
+                  <a class="nav-link" id="ex1-tab-3" data-mdb-toggle="tab" href="#ex1-tabs-3" role="tab"
+                    aria-controls="ex1-tabs-3" aria-selected="false">DOWNLOAD DATA</a>
+                </li>
               </ul>
               <!-- Tabs navs -->
 
@@ -158,6 +162,28 @@
                       {% endif %}
                     </tbody>
                   </table>
+                </div>
+
+                <div class="tab-pane fade show active" id="ex1-tabs-3" role="tabpanel" aria-labelledby="ex1-tab-3">
+                  <form method = "POST" action = "{% url 'export-data' %}" class="row row-cols-lg-auto g-3 align-items-center">
+                    {% csrf_token %}
+                    <div class = "col-12">
+                      <label class = "form-check-label">Start</label>
+                      <input type="date" name="fromdate" required>
+                    </div>
+
+                    <div class = "col-12">
+                      <label class = "form-check-label">End</label>
+                      <input type="date" name="todate" required>
+                    </div>
+
+                    <div class="col-12">
+                      <button class="btn btn-info ms-2 form-check-inline" type = "submit">
+                        <i id = "tocsv" class="fas fa-file-export"></i>
+                        Download CSV
+                      </button>
+                    </div>
+                  </form>
                 </div>
               </div>
               <!-- Tabs content -->

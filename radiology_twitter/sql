@@ -1,1 +1,3 @@
 CREATE DATABASE IF NOT EXISTS radiology_twitter;
+
+ALTER TABLE twitter_client_tweet CONVERT TO CHARACTER SET utf8mb4;

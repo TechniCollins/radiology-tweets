@@ -16,6 +16,11 @@ class Hashtag(models.Model):
     enabled = models.BooleanField(default=True)
     endpoint = models.ForeignKey(Endpoint, on_delete=models.CASCADE)
 
+    last_tweet = models.CharField(max_length=50, null=True)
+    # last_tweet will be updated for all, but will be relevant
+    # only for hashtags in the "standard" endpoint. We'll use
+    # this as the `since_id`
+
     class meta:
         UniqueConstraint(fields = ['name', 'endpoint'], name = 'unique_hashtag')
 
@@ -55,9 +60,9 @@ class Tweet(models.Model):
     author_following_count = models.IntegerField()
     author_tweet_count = models.IntegerField()
 
-    # Delete these?
     reply_to = models.CharField(max_length=50, default=None, null=True)
     retweet_to = models.CharField(max_length=50, default=None, null=True)
+    quoted_tweet = models.CharField(max_length=50, default=None, null=True)
 
     def __str__(self):
         return self.tweet_id
