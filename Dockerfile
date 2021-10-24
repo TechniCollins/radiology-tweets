@@ -11,8 +11,9 @@ RUN mkdir -p $APP_HOME
 WORKDIR $APP_HOME
 
 # Install mysql dependencis
-RUN apt update \
-    && apt install default-libmysqlclient-dev gcc python3-dev
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    default-libmysqlclient-dev gcc python3-dev
 
 # Install pip packages
 ADD ./requirements.txt .
