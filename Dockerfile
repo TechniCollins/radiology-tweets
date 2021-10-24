@@ -10,6 +10,11 @@ ENV PYTHONUNBUFFERED 1
 RUN mkdir -p $APP_HOME
 WORKDIR $APP_HOME
 
+# Install mysql dependencis
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    default-libmysqlclient-dev gcc python3-dev
+
 # Install pip packages
 ADD ./requirements.txt .
 RUN pip install -r requirements.txt
@@ -19,5 +24,7 @@ RUN rm requirements.txt
 # Copy code into Image
 ADD ./radiology_twitter/ $APP_HOME
 
-# collect static files
-# RUN $APP_HOME/manage.py collectstatic
+# RUN $APP_HOME/manage.py migrate
+
+# Populate Default Data
+# $APP_HOME/manage.py loaddata endpoints
