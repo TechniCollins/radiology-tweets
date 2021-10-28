@@ -179,6 +179,28 @@
                     </div>
 
                     <div class="col-12">
+                      <label>Hashtag</label>
+                      <select class="select" name="hashtag" required>
+                        <option>
+                        {% for s in standard_hashtags %}
+                        <option value="{{ s.id }}">{{ s.name }} <sub>(standard)</sub> </option>
+                        {% endfor %}
+
+                        {% for a in academic_hashtags %}
+                        <option value="{{ a.id }}">{{ a.name }} <small>(academic)</small> </option>
+                        {% endfor %}
+                      </select>
+                    </div>
+
+                    <div class="col-12">
+                      <label>Download</label>
+                      <select class="select" name="download">
+                        <option value="tweets">Tweets</option>
+                        <option value="volumes">Volumes</option>
+                      </select>
+                    </div>
+
+                    <div class="col-12">
                       <button class="btn btn-info ms-2 form-check-inline" type = "submit">
                         <i id = "tocsv" class="fas fa-file-export"></i>
                         Download CSV
