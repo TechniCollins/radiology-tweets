@@ -1,3 +1,5 @@
+*NOTE:* This was originally built to study discussions about radiology on Twitter. A lot of traces of the previous use case still remain.
+
 # PREREQUISITES
 
 ## Google Developer account
